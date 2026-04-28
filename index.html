@@ -2,136 +2,98 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Satellite Labyrinth</title>
+    <title>3D Contour Labyrinth</title>
     <style>
         body { 
-            margin: 0; 
-            overflow: hidden; 
-            background: #000; 
-            font-family: 'Arial Black', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            margin: 0; overflow: hidden; background: #000;
+            display: flex; justify-content: center; align-items: center; height: 100vh;
         }
-        /* The 3D Parallax Layer */
-        #bg-layer {
-            position: absolute;
-            width: 120%; height: 120%; /* Slightly larger to allow for movement */
+        #bg-map {
+            position: absolute; width: 100%; height: 100%;
             background: url('volcano.png') no-repeat center center;
-            background-size: contain;
-            z-index: -1;
+            background-size: contain; z-index: 1;
         }
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 5; }
-        #ui { position: absolute; z-index: 10; color: #fff; text-align: center; }
-        button { padding: 15px 35px; font-size: 22px; background: rgba(0,0,0,0.8); color: #ff4500; border: 2px solid #ff4500; border-radius: 10px; cursor: pointer; }
-        #win { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); color: #ff00ff; font-size: 50px; text-shadow: 0 0 20px #ff00ff; z-index: 100; transition: 0.5s; text-align: center; pointer-events: none; }
-        .show-win { transform: translate(-50%, -50%) scale(1) !important; }
+        canvas { position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
+        #ui { position: absolute; z-index: 20; text-align: center; color: #fff; font-family: sans-serif; }
+        button { padding: 15px 40px; font-size: 20px; background: #ff4500; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px #ff4500; }
     </style>
 </head>
 <body>
-    <div id="bg-layer"></div>
-    <div id="ui"><h1>3D DESCENT</h1><button id="startBtn">BEGIN</button></div>
-    <div id="win">🪱<br>AAHHHMAZING!</div>
+    <div id="bg-map"></div>
+    <div id="ui"><h1>ASCENT</h1><button id="startBtn">START</button></div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const bg = document.getElementById('bg-layer');
         const startBtn = document.getElementById('startBtn');
-        const winDisplay = document.getElementById('win');
-        
-        let ball = { x: 0, y: 0, radius: 6, vx: 0, vy: 0 };
-        let walls = [];
+        let ball = { x: 50, y: 50, r: 8, vx: 0, vy: 0 };
         let active = false;
-        let cx, cy;
+        let walls = [];
 
         function init() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            cx = canvas.width / 2; cy = canvas.height / 2;
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            const cx = canvas.width / 2; const cy = canvas.height / 2;
             
-            // Re-generating the invisible Maze ridges to match the photo
+            // Generate maze walls following the photo's circular switchbacks
             walls = [];
-            const rings = 8;
-            const dist = (Math.min(canvas.width, canvas.height)/2 - 40) / rings;
-            for (let i = 1; i <= rings; i++) {
+            const rings = 9;
+            const step = (Math.min(cx, cy) - 40) / rings;
+            for(let i = 1; i <= rings; i++) {
                 let gap = Math.random() * 6.28;
-                walls.push({ r: i * dist, gapS: gap, gapE: gap + 0.8 });
+                walls.push({ r: i * step, gapS: gap, gapE: gap + 0.7 });
             }
-            // Spawn on the edge
-            ball.x = 40; ball.y = 40;
-            ball.vx = 0; ball.vy = 0;
         }
 
         function update() {
             if (!active) return;
             ball.x += ball.vx; ball.y += ball.vy;
-            ball.vx *= 0.98; ball.vy *= 0.98;
+            ball.vx *= 0.985; ball.vy *= 0.985;
 
-            // 3D PARALLAX EFFECT: Move background slightly based on tilt
-            // This makes the center look "deeper" than the edges
-            const bgX = (ball.x - cx) * -0.05;
-            const bgY = (ball.y - cy) * -0.05;
-            bg.style.transform = `translate(${bgX}px, ${bgY}px)`;
-
+            const cx = canvas.width/2; const cy = canvas.height/2;
             const dist = Math.hypot(ball.x - cx, ball.y - cy);
             const angle = (Math.atan2(ball.y - cy, ball.x - cx) + 6.28) % 6.28;
 
-            // SOLID WALL COLLISION
             walls.forEach(w => {
-                if (Math.abs(dist - w.r) < ball.radius + 5) {
+                if (Math.abs(dist - w.r) < ball.r + 4) {
                     let inGap = (angle > w.gapS && angle < w.gapE);
                     if (!inGap) {
-                        const push = (dist > w.r) ? 1.5 : -1.5;
-                        ball.x = cx + Math.cos(angle) * (w.r + (push * 8));
-                        ball.y = cy + Math.sin(angle) * (w.r + (push * 8));
-                        ball.vx *= -0.5; ball.vy *= -0.5;
-                        if(navigator.vibrate) navigator.vibrate(8);
+                        const push = (dist > w.r) ? 2 : -2;
+                        ball.x = cx + Math.cos(angle) * (w.r + (push * 10));
+                        ball.y = cy + Math.sin(angle) * (w.r + (push * 10));
+                        ball.vx *= -0.4; ball.vy *= -0.4;
                     }
                 }
             });
 
-            // CENTER GOAL
-            if (dist < 30) {
-                active = false;
-                winDisplay.classList.add('show-win');
-                setTimeout(() => {
-                    winDisplay.classList.remove('show-win');
-                    init(); active = true;
-                }, 3000);
-            }
+            if (dist < 30) { active = false; alert("AAHHHMAZING!"); location.reload(); }
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Metallic 3D-looking Ball
-            let bGrad = ctx.createRadialGradient(ball.x-2, ball.y-2, 1, ball.x, ball.y, ball.radius);
-            bGrad.addColorStop(0, "#fff"); bGrad.addColorStop(1, "#333");
-            ctx.fillStyle = bGrad;
-            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, 6.28); ctx.fill();
-
-            update();
-            requestAnimationFrame(draw);
+            // High-visibility neon ball
+            ctx.shadowBlur = 15; ctx.shadowColor = "#0ff";
+            ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, 6.28); ctx.fill();
+            update(); requestAnimationFrame(draw);
         }
 
         startBtn.addEventListener('click', () => {
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission().then(s => {
                     if (s === 'granted') window.addEventListener('deviceorientation', e => {
-                        ball.vx += e.gamma * 0.16; ball.vy += e.beta * 0.16;
+                        ball.vx += e.gamma * 0.18; ball.vy += e.beta * 0.18;
                     });
                 });
             } else {
                 window.addEventListener('deviceorientation', e => {
-                    ball.vx += e.gamma * 0.16; ball.vy += e.beta * 0.16;
+                    ball.vx += e.gamma * 0.18; ball.vy += e.beta * 0.18;
                 });
             }
             document.getElementById('ui').style.display = "none"; active = true;
         });
 
+        window.addEventListener('resize', init);
         init(); draw();
     </script>
 </body>
