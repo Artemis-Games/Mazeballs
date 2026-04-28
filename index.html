@@ -2,20 +2,20 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Volcano Switchback Labyrinth</title>
+    <title>Terrain Labyrinth Pro</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; }
         canvas { display: block; }
         #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; text-align: center; z-index: 10; }
-        button { pointer-events: auto; padding: 15px 35px; font-size: 20px; cursor: pointer; background: #111; color: #ff4500; border: 3px solid #ff4500; border-radius: 50px; text-transform: uppercase; box-shadow: 0 0 20px #ff4500; }
+        button { pointer-events: auto; padding: 15px 35px; font-size: 20px; cursor: pointer; background: #222; color: #fff; border: 2px solid #fff; border-radius: 5px; text-transform: uppercase; letter-spacing: 2px; }
         #winContainer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; pointer-events: none; z-index: 100; }
-        #worm { font-size: 80px; }
-        #winText { color: #ff00ff; font-size: 40px; text-shadow: 0 0 20px #ff00ff; opacity: 0; transform: scale(0.5); transition: 0.5s; }
+        #worm { font-size: 80px; filter: drop-shadow(0 0 10px gold); }
+        #winText { color: gold; font-size: 40px; text-shadow: 2px 2px #000; opacity: 0; transform: scale(0.5); transition: 0.5s; font-weight: bold; }
         .show-win #winText { opacity: 1; transform: scale(1); }
     </style>
 </head>
 <body>
-    <div id="ui"><h1>CORE WARP</h1><button id="startBtn">IGNITION</button></div>
+    <div id="ui"><h1>GAIA'S CORE</h1><button id="startBtn">BEGIN JOURNEY</button></div>
     <div id="winContainer"><div id="worm">🪱</div><div id="winText">AAHHHMAZING!</div></div>
     <canvas id="gameCanvas"></canvas>
 
@@ -29,7 +29,15 @@
         let walls = [];
         let active = false;
         let cx, cy, level = 1;
-        let teleRotation = 0;
+
+        // Realistic Terrain Profiles
+        const worldThemes = [
+            { name: "Teleidoscope", wall: "#00f2ff", bg: "#000814", goal: "crystal" },
+            { name: "Volcano", wall: "#3d1f00", bg: "#1a0d00", goal: "lava" },
+            { name: "Tundra", wall: "#a8dadc", bg: "#f1faee", goal: "ice" },
+            { name: "Ruins", wall: "#344e41", bg: "#dad7cd", goal: "stone" },
+            { name: "Deep Core", wall: "#222", bg: "#000", goal: "fire" }
+        ];
 
         function init() {
             canvas.width = window.innerWidth;
@@ -40,63 +48,76 @@
 
         function generateLevel() {
             walls = [];
-            if (level % 2 !== 0) {
-                // NEON MAZE WORLD
-                const rings = 6;
-                const dist = (Math.min(canvas.width, canvas.height)/2 - 50) / rings;
-                for (let i = 1; i <= rings; i++) {
-                    let gap = Math.random() * 6.28;
-                    walls.push({ r: i * dist, gapS: gap, gapE: gap + 0.7, type: 'neon' });
-                }
-                ball.x = cx + (rings * dist); ball.y = cy;
-            } else {
-                // VOLCANO WORLD: SWITCHBACKS
-                const rings = 7;
-                const dist = (Math.min(canvas.width, canvas.height)/2 - 50) / rings;
-                // Create winding switchback path
-                for (let i = 1; i <= rings; i++) {
-                    // Alternate gaps every 180 degrees to force a "switchback" path
-                    let gap = (i % 2 === 0) ? 0 : Math.PI;
-                    walls.push({ r: i * dist, gapS: gap, gapE: gap + 1.2, type: 'mountain' });
-                }
-                ball.x = cx + (rings * dist); ball.y = cy;
+            const theme = worldThemes[(level-1) % 5];
+            const rings = 5 + level;
+            const dist = (Math.min(canvas.width, canvas.height)/2 - 40) / rings;
+
+            for (let i = 1; i <= rings; i++) {
+                let gap = (level % 2 === 0) ? (i % 2 === 0 ? 0 : Math.PI) : Math.random() * 6.28;
+                walls.push({ r: i * dist, gapS: gap, gapE: gap + 0.8 });
             }
+            ball.x = cx + (rings * dist); ball.y = cy;
             ball.vx = 0; ball.vy = 0;
         }
 
-        function drawTeleidoscope() {
-            teleRotation += 0.02;
+        function drawBackground() {
+            const theme = worldThemes[(level-1) % 5];
+            // Simulate realistic terrain with gradients
+            let grd = ctx.createRadialGradient(cx, cy, 10, cx, cy, canvas.width);
+            grd.addColorStop(0, "#000");
+            grd.addColorStop(1, theme.bg);
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Add texture grain
+            ctx.globalAlpha = 0.05;
+            for(let i=0; i<100; i++) {
+                ctx.fillStyle = "white";
+                ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawGoal() {
+            const theme = worldThemes[(level-1) % 5];
             ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(teleRotation);
-            for (let i = 0; i < 6; i++) {
-                ctx.rotate(Math.PI / 3);
-                ctx.beginPath();
-                ctx.moveTo(0, 0); ctx.lineTo(20, 40); ctx.lineTo(-20, 40); ctx.closePath();
-                ctx.strokeStyle = level % 2 !== 0 ? "#0ff" : "#ff4500";
-                ctx.shadowBlur = 15; ctx.shadowColor = ctx.strokeStyle;
-                ctx.stroke();
+            if (theme.goal === "crystal") {
+                // Teleidoscope Core
+                ctx.translate(cx, cy);
+                ctx.rotate(Date.now() / 1000);
+                for(let i=0; i<6; i++) {
+                    ctx.rotate(Math.PI/3);
+                    ctx.fillStyle = "rgba(0, 242, 255, 0.5)";
+                    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(20,40); ctx.lineTo(-20,40); ctx.fill();
+                }
+            } else if (theme.goal === "lava") {
+                // Pulsing Lava Crater
+                let pulse = 25 + Math.sin(Date.now()/200)*5;
+                let lgrd = ctx.createRadialGradient(cx, cy, 5, cx, cy, pulse);
+                lgrd.addColorStop(0, "yellow"); lgrd.addColorStop(0.5, "orange"); lgrd.addColorStop(1, "red");
+                ctx.fillStyle = lgrd;
+                ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, 6.28); ctx.fill();
             }
             ctx.restore();
         }
 
         function update() {
             if (!active) return;
+            // Tundra level has less friction (more slippery)
+            const friction = (level % 5 === 3) ? 0.995 : 0.98;
             ball.x += ball.vx; ball.y += ball.vy;
-            ball.vx *= 0.98; ball.vy *= 0.98;
+            ball.vx *= friction; ball.vy *= friction;
 
             const dist = Math.hypot(ball.x - cx, ball.y - cy);
             const angle = (Math.atan2(ball.y - cy, ball.x - cx) + 6.28) % 6.28;
 
             walls.forEach(w => {
-                if (Math.abs(dist - w.r) < ball.radius + 3) {
-                    let blocked = !(angle > w.gapS && angle < w.gapE);
-                    // Special check for gaps crossing the 0/2PI line
-                    if (w.gapE > 6.28) {
-                        blocked = !(angle > w.gapS || angle < w.gapE % 6.28);
-                    }
-                    if (blocked) {
-                        const push = (dist > w.r) ? 1.2 : -1.2;
+                if (Math.abs(dist - w.r) < ball.radius + 4) {
+                    let inGap = (angle > w.gapS && angle < w.gapE);
+                    if (w.gapE > 6.28) inGap = (angle > w.gapS || angle < w.gapE % 6.28);
+                    
+                    if (!inGap) {
+                        const push = (dist > w.r) ? 1.5 : -1.5;
                         ball.x = cx + Math.cos(angle) * (w.r + (push * (ball.radius + 2)));
                         ball.y = cy + Math.sin(angle) * (w.r + (push * (ball.radius + 2)));
                         ball.vx *= -0.5; ball.vy *= -0.5;
@@ -105,46 +126,38 @@
                 }
             });
 
-            if (dist < 25) { // Goal reached
+            if (dist < 25) {
                 active = false;
                 winContainer.style.display = "flex";
                 winContainer.classList.add('show-win');
                 setTimeout(() => {
                     winContainer.classList.remove('show-win');
                     winContainer.style.display = "none";
-                    level++; generateLevel(); active = true;
+                    level++; if(level > 5) level = 1; 
+                    generateLevel(); active = true;
                 }, 2000);
             }
         }
 
         function draw() {
-            ctx.fillStyle = "black"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw Goal (Wormhole or Lava Crater)
-            if (level % 2 === 0) {
-                // Pulsing Lava Crater
-                const pulse = 20 + Math.sin(Date.now() / 200) * 5;
-                ctx.fillStyle = "#ff4500"; ctx.shadowBlur = 30; ctx.shadowColor = "red";
-                ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, 6.28); ctx.fill();
-            } else {
-                drawTeleidoscope();
-            }
+            drawBackground();
+            drawGoal();
+            const theme = worldThemes[(level-1) % 5];
 
             walls.forEach(w => {
                 ctx.beginPath();
-                ctx.lineWidth = w.type === 'mountain' ? 8 : 4;
-                ctx.shadowBlur = 10;
-                if (w.type === 'neon') {
-                    ctx.strokeStyle = "#0ff"; ctx.shadowColor = "#0ff";
-                } else {
-                    ctx.strokeStyle = "#8b4513"; ctx.shadowColor = "#442200"; // Brown Mountain
-                }
+                ctx.lineWidth = 10;
+                ctx.lineCap = "round";
+                ctx.strokeStyle = theme.wall;
+                ctx.shadowBlur = 5; ctx.shadowColor = "black";
                 ctx.arc(cx, cy, w.r, w.gapE, w.gapS);
                 ctx.stroke();
             });
 
-            // Ball
-            ctx.fillStyle = "white"; ctx.shadowBlur = 10; ctx.shadowColor = "white";
+            // The Ball (A realistic silver marble)
+            let bgrd = ctx.createRadialGradient(ball.x-2, ball.y-2, 1, ball.x, ball.y, ball.radius);
+            bgrd.addColorStop(0, "white"); bgrd.addColorStop(1, "#888");
+            ctx.fillStyle = bgrd;
             ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, 6.28); ctx.fill();
 
             update(); requestAnimationFrame(draw);
