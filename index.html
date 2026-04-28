@@ -2,20 +2,23 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Teleidoscope Volcano</title>
+    <title>Gyro-Wormhole Labyrinth</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; transition: background 1s; }
         canvas { display: block; }
-        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; text-align: center; z-index: 10; }
-        button { pointer-events: auto; padding: 15px 35px; font-size: 20px; cursor: pointer; background: #111; color: orange; border: 3px solid orange; border-radius: 50px; text-transform: uppercase; box-shadow: 0 0 20px orange; }
+        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #0ff; text-align: center; z-index: 10; }
+        button { pointer-events: auto; padding: 15px 35px; font-size: 22px; cursor: pointer; background: #111; color: inherit; border: 3px solid currentColor; border-radius: 50px; text-transform: uppercase; box-shadow: 0 0 20px currentColor; }
         #winContainer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; pointer-events: none; z-index: 100; }
-        #worm { font-size: 80px; }
-        #winText { color: #f0f; font-size: 40px; text-shadow: 0 0 20px #f0f; opacity: 0; transform: scale(0.5); transition: 0.5s; }
+        #worm { font-size: 80px; transform: translateY(50px); opacity: 0; transition: all 0.5s cubic-bezier(0.17, 0.89, 0.32, 1.49); }
+        #winText { color: #f0f; font-size: 40px; text-shadow: 0 0 20px #f0f; opacity: 0; transform: scale(0.5); transition: all 0.5s 0.3s; }
+        #levelText { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 16px; letter-spacing: 2px; }
+        .show-win #worm { opacity: 1; transform: translateY(-20px); }
         .show-win #winText { opacity: 1; transform: scale(1); }
     </style>
 </head>
 <body>
-    <div id="ui"><h1>CORE WARP</h1><button id="startBtn">IGNITION</button></div>
+    <div id="levelText">SECTOR: 1</div>
+    <div id="ui"><h1>NEON WHEEL</h1><button id="startBtn">START</button></div>
     <div id="winContainer"><div id="worm">🪱</div><div id="winText">AAHHHMAZING!</div></div>
     <canvas id="gameCanvas"></canvas>
 
@@ -24,54 +27,79 @@
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('startBtn');
         const winContainer = document.getElementById('winContainer');
+        const levelDisplay = document.getElementById('levelText');
         
         let ball = { x: 0, y: 0, radius: 6, vx: 0, vy: 0 };
         let walls = [];
+        let goal = { radius: 28 };
         let active = false;
-        let cx, cy, level = 1;
-        let teleRotation = 0;
+        let cx, cy, currentLevel = 1;
+        let gyroRot = [0, 0, 0];
+
+        // Theme Palette: [WallColor, GlowColor, BallColor]
+        const themes = [
+            ['#00ffff', '#00ffff', '#ffffff'], // Cyber
+            ['#ff00ff', '#ff00ff', '#ffff00'], // Neon Candy
+            ['#33ff33', '#33ff33', '#ff0000'], // Toxic
+            ['#ffaa00', '#ffaa00', '#0000ff'], // Flare
+            ['#ffffff', '#ffffff', '#555555']  // Ghost
+        ];
 
         function init() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             cx = canvas.width / 2; cy = canvas.height / 2;
-            generateLevel();
+            generateMaze();
         }
 
-        function generateLevel() {
+        function generateMaze() {
             walls = [];
-            if (level % 2 !== 0) {
-                // MAZE WORLD
-                const rings = 6;
-                const dist = (Math.min(canvas.width, canvas.height)/2 - 50) / rings;
-                for (let i = 1; i <= rings; i++) {
-                    let gap = Math.random() * 6.28;
-                    walls.push({ r: i * dist, gapS: gap, gapE: gap + 0.6, type: 'neon' });
-                }
-                ball.x = cx + (rings * dist); ball.y = cy;
-            } else {
-                // VOLCANO WORLD
-                walls.push({ r: Math.min(cx, cy) - 20, type: 'mountain' }); // Outer Mountain
-                walls.push({ r: 40, type: 'lava' }); // Inner Volcano rim
-                ball.x = cx + 100; ball.y = cy + 100;
+            const rings = 5 + (currentLevel % 8); 
+            const ringDist = (Math.min(canvas.width, canvas.height) / 2 - 60) / rings;
+            for (let i = 1; i <= rings; i++) {
+                const gapAngle = Math.random() * Math.PI * 2;
+                walls.push({ r: i * ringDist, gapStart: gapAngle, gapEnd: gapAngle + 0.5 });
             }
+            ball.x = cx + (rings * ringDist); ball.y = cy;
             ball.vx = 0; ball.vy = 0;
+            levelDisplay.innerText = `SECTOR: ${currentLevel}`;
+            levelDisplay.style.color = themes[currentLevel % themes.length][0];
         }
 
-        function drawTeleidoscope() {
-            teleRotation += 0.01;
+        function resolveCollisions() {
+            const dx = ball.x - cx, dy = ball.y - cy;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const angle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
+
+            walls.forEach(w => {
+                if (Math.abs(dist - w.r) < ball.radius + 2) {
+                    let inGap = (w.gapStart < (w.gapEnd % 6.28)) ? 
+                        (angle > w.gapStart && angle < w.gapEnd) : 
+                        (angle > w.gapStart || angle < (w.gapEnd % 6.28));
+                    if (!inGap) {
+                        const push = (dist > w.r) ? 1 : -1;
+                        const correctDist = w.r + (push * (ball.radius + 4));
+                        ball.x = cx + Math.cos(angle) * correctDist;
+                        ball.y = cy + Math.sin(angle) * correctDist;
+                        ball.vx *= -0.5; ball.vy *= -0.5;
+                        if (navigator.vibrate) navigator.vibrate(5);
+                    }
+                }
+            });
+        }
+
+        function drawGyroscope() {
+            const theme = themes[currentLevel % themes.length];
             ctx.save();
             ctx.translate(cx, cy);
-            ctx.rotate(teleRotation);
-            for (let i = 0; i < 8; i++) {
-                ctx.rotate(Math.PI / 4);
+            ctx.shadowBlur = 15; ctx.shadowColor = theme[1];
+            for (let i = 0; i < 3; i++) {
                 ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(30, 60);
-                ctx.lineTo(-30, 60);
-                ctx.closePath();
-                ctx.strokeStyle = `hsl(${(level * 40) + (i * 20)}, 100%, 50%)`;
-                ctx.stroke();
+                ctx.rotate(gyroRot[i]);
+                ctx.ellipse(0, 0, goal.radius - (i*6), goal.radius/(1+(i*0.5)), i, 0, Math.PI * 2);
+                ctx.strokeStyle = i === 0 ? theme[0] : (i === 1 ? theme[1] : '#fff');
+                ctx.lineWidth = 2; ctx.stroke();
+                gyroRot[i] += 0.02 * (i + 1);
             }
             ctx.restore();
         }
@@ -80,61 +108,29 @@
             if (!active) return;
             ball.x += ball.vx; ball.y += ball.vy;
             ball.vx *= 0.98; ball.vy *= 0.98;
-
-            const dist = Math.hypot(ball.x - cx, ball.y - cy);
-            const angle = (Math.atan2(ball.y - cy, ball.x - cx) + 6.28) % 6.28;
-
-            walls.forEach(w => {
-                if (Math.abs(dist - w.r) < ball.radius + 2) {
-                    let blocked = true;
-                    if (w.type === 'neon') {
-                        blocked = !(angle > w.gapS && angle < w.gapE);
-                    }
-                    if (blocked) {
-                        const push = (dist > w.r) ? 1 : -1;
-                        ball.x = cx + Math.cos(angle) * (w.r + (push * (ball.radius + 4)));
-                        ball.y = cy + Math.sin(angle) * (w.r + (push * (ball.radius + 4)));
-                        ball.vx *= -0.5; ball.vy *= -0.5;
-                    }
-                }
-            });
-
-            // Finish: Falling into the center
-            if (dist < 30) {
-                active = false;
+            resolveCollisions();
+            if (Math.hypot(ball.x - cx, ball.y - cy) < goal.radius - 5) {
+                active = false; currentLevel++;
                 winContainer.style.display = "flex";
-                winContainer.classList.add('show-win');
+                setTimeout(() => winContainer.classList.add('show-win'), 10);
                 setTimeout(() => {
                     winContainer.classList.remove('show-win');
-                    winContainer.style.display = "none";
-                    level++; generateLevel(); active = true;
-                }, 2000);
+                    setTimeout(() => winContainer.style.display = "none", 500);
+                    generateMaze(); active = true;
+                }, 2500);
             }
         }
 
         function draw() {
-            ctx.fillStyle = "black"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            drawTeleidoscope();
-
+            const theme = themes[currentLevel % themes.length];
+            ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawGyroscope();
+            ctx.strokeStyle = theme[0]; ctx.shadowBlur = 10; ctx.shadowColor = theme[1];
             walls.forEach(w => {
-                ctx.beginPath();
-                ctx.shadowBlur = 15;
-                if (w.type === 'neon') {
-                    ctx.strokeStyle = "#0ff"; ctx.shadowColor = "#0ff";
-                    ctx.arc(cx, cy, w.r, w.gapE, w.gapS);
-                } else if (w.type === 'mountain') {
-                    ctx.strokeStyle = "#442200"; ctx.shadowColor = "#442200"; ctx.lineWidth = 10;
-                    ctx.arc(cx, cy, w.r, 0, 6.28);
-                } else if (w.type === 'lava') {
-                    ctx.strokeStyle = "red"; ctx.shadowColor = "red";
-                    ctx.arc(cx, cy, w.r, 0, 6.28);
-                }
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(cx, cy, w.r, w.gapEnd, w.gapStart); ctx.stroke();
             });
-
-            ctx.fillStyle = "white"; ctx.shadowBlur = 10;
-            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, 6.28); ctx.fill();
-
+            ctx.fillStyle = theme[2]; ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill();
             update(); requestAnimationFrame(draw);
         }
 
@@ -145,11 +141,9 @@
                         ball.vx += e.gamma * 0.15; ball.vy += e.beta * 0.15;
                     });
                 });
-            } else {
-                window.addEventListener('deviceorientation', e => {
-                    ball.vx += e.gamma * 0.15; ball.vy += e.beta * 0.15;
-                });
-            }
+            } else { window.addEventListener('deviceorientation', e => {
+                ball.vx += e.gamma * 0.15; ball.vy += e.beta * 0.15;
+            });}
             document.getElementById('ui').style.display = "none"; active = true;
         });
 
