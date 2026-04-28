@@ -2,24 +2,20 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Wheel Labyrinth</title>
+    <title>Neon Wheel Labyrinth - Solid Walls</title>
     <style>
         body { margin: 0; overflow: hidden; background: #050505; font-family: 'Arial Black', sans-serif; }
         canvas { display: block; }
-        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #0ff; text-align: center; }
-        button { pointer-events: auto; padding: 15px 35px; font-size: 22px; cursor: pointer; background: transparent; color: #0ff; border: 3px solid #0ff; border-radius: 50px; text-transform: uppercase; box-shadow: 0 0 20px #0ff; transition: 0.3s; }
-        
-        /* The "Ahhhhmazing!" Animation */
+        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #0ff; text-align: center; z-index: 10; }
+        button { pointer-events: auto; padding: 15px 35px; font-size: 22px; cursor: pointer; background: transparent; color: #0ff; border: 3px solid #0ff; border-radius: 50px; text-transform: uppercase; box-shadow: 0 0 20px #0ff; }
         #winMsg {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
-            width: 100%; text-align: center; color: #f0f; font-size: 60px;
-            text-shadow: 0 0 30px #f0f, 0 0 60px #f0f; display: none; pointer-events: none;
-            z-index: 100;
+            width: 100%; text-align: center; color: #f0f; font-size: 50px;
+            text-shadow: 0 0 30px #f0f; display: none; pointer-events: none; z-index: 100;
         }
-        .zoom-anim { display: block !important; animation: zoomCenter 1.5s forwards cubic-bezier(0.17, 0.89, 0.32, 1.49); }
+        .zoom-anim { display: block !important; animation: zoomCenter 1.5s forwards; }
         @keyframes zoomCenter {
             0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
             100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
     </style>
@@ -27,7 +23,7 @@
 <body>
     <div id="ui">
         <h1 style="letter-spacing:5px;">NEON WHEEL</h1>
-        <button id="startBtn">ENTER LABYRINTH</button>
+        <button id="startBtn">START</button>
     </div>
     <div id="winMsg">AAHHHMAZING!</div>
     <canvas id="gameCanvas"></canvas>
@@ -38,109 +34,134 @@
         const startBtn = document.getElementById('startBtn');
         const winMsg = document.getElementById('winMsg');
         
-        let ball = { x: 0, y: 0, radius: 8, vx: 0, vy: 0 };
+        let ball = { x: 0, y: 0, radius: 7, vx: 0, vy: 0 };
         let walls = [];
         let goal = { x: 0, y: 0, radius: 20 };
         let active = false;
         let cx, cy;
 
-        function generateCircularMaze() {
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
             cx = canvas.width / 2;
             cy = canvas.height / 2;
+            generateMaze();
+        }
+
+        function generateMaze() {
             walls = [];
-            const rings = 8;
+            const rings = 6;
             const ringDist = (Math.min(canvas.width, canvas.height) / 2 - 40) / rings;
 
             for (let i = 1; i <= rings; i++) {
                 const r = i * ringDist;
-                const segments = 8 + i * 2;
-                const gapIndex = Math.floor(Math.random() * segments);
-                
-                for (let j = 0; j < segments; j++) {
-                    if (j !== gapIndex) {
-                        const start = (j / segments) * Math.PI * 2;
-                        const end = ((j + 1) / segments) * Math.PI * 2;
-                        walls.push({ type: 'arc', r, start, end });
-                    }
-                }
-                // Add random spoke walls to make it a real maze
-                const spokeAngle = (gapIndex / segments) * Math.PI * 2 + (Math.PI / segments);
-                walls.push({ type: 'spoke', rInner: r - ringDist, rOuter: r, angle: spokeAngle });
+                const segments = 6 + i;
+                const gapAngle = Math.random() * Math.PI * 2;
+                const gapSize = 0.5; // Size of the opening
+
+                walls.push({
+                    r: r,
+                    gapStart: gapAngle,
+                    gapEnd: gapAngle + gapSize
+                });
             }
-            goal = { x: cx, y: cy, radius: 18 };
-            ball.x = cx + (rings * ringDist); ball.y = cy;
-        }
-
-        function draw() {
-            ctx.fillStyle = "rgba(5, 5, 5, 0.2)"; // Trail effect
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 12;
-            ctx.strokeStyle = "#0ff"; ctx.shadowColor = "#0ff";
-
-            walls.forEach(w => {
-                ctx.beginPath();
-                if (w.type === 'arc') ctx.arc(cx, cy, w.r, w.start, w.end);
-                else {
-                    ctx.moveTo(cx + Math.cos(w.angle) * w.rInner, cy + Math.sin(w.angle) * w.rInner);
-                    ctx.lineTo(cx + Math.cos(w.angle) * w.rOuter, cy + Math.sin(w.angle) * w.rOuter);
-                }
-                ctx.stroke();
-            });
-
-            // Goal
-            ctx.strokeStyle = "#f0f"; ctx.shadowColor = "#f0f";
-            ctx.beginPath(); ctx.arc(goal.x, goal.y, goal.radius, 0, Math.PI * 2); ctx.stroke();
-
-            if (active) {
-                ctx.fillStyle = "#fff"; ctx.shadowColor = "#fff";
-                ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill();
-                update();
-            }
-            requestAnimationFrame(draw);
+            goal = { x: cx, y: cy, radius: 15 };
+            ball.x = cx + (rings * ringDist) - 15;
+            ball.y = cy;
+            ball.vx = 0; ball.vy = 0;
         }
 
         function update() {
-            ball.vx *= 0.985; ball.vy *= 0.985; // Heavy feel
-            ball.x += ball.vx; ball.y += ball.vy;
+            if (!active) return;
 
-            // Collision with boundaries
-            const dist = Math.hypot(ball.x - cx, ball.y - cy);
-            if (dist > (canvas.width/2)) { ball.vx *= -0.5; ball.vy *= -0.5; }
+            // Apply movement
+            let nextX = ball.x + ball.vx;
+            let nextY = ball.y + ball.vy;
+            
+            // Wall Collision Logic
+            const distToCenter = Math.hypot(nextX - cx, nextY - cy);
+            const angle = Math.atan2(nextY - cy, nextX - cx);
+            const normAngle = (angle + Math.PI * 2) % (Math.PI * 2);
 
-            // Win Condition
-            if (dist < goal.radius + ball.radius) {
+            walls.forEach(w => {
+                // If ball is crossing a ring's radius
+                if (Math.abs(distToCenter - w.r) < ball.radius) {
+                    // Check if we are NOT in the gap
+                    const inGap = (normAngle > w.gapStart && normAngle < w.gapEnd) ||
+                                  (w.gapEnd > Math.PI*2 && normAngle < w.gapEnd % (Math.PI*2));
+                    
+                    if (!inGap) {
+                        // Bounce the ball back
+                        const pushBack = (w.r > distToCenter) ? -1 : 1;
+                        nextX = ball.x - ball.vx * 0.5;
+                        nextY = ball.y - ball.vy * 0.5;
+                        ball.vx *= -0.4;
+                        ball.vy *= -0.4;
+                    }
+                }
+            });
+
+            ball.x = nextX;
+            ball.y = nextY;
+            ball.vx *= 0.98; // Friction
+            ball.vy *= 0.98;
+
+            // Goal Check
+            if (distToCenter < goal.radius) {
                 active = false;
                 winMsg.classList.add('zoom-anim');
                 setTimeout(() => {
                     winMsg.classList.remove('zoom-anim');
-                    generateCircularMaze();
+                    generateMaze();
                     active = true;
                 }, 3000);
             }
         }
 
+        function draw() {
+            ctx.fillStyle = "#050505";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Walls
+            ctx.lineWidth = 5;
+            ctx.shadowBlur = 15;
+            ctx.strokeStyle = "#0ff"; ctx.shadowColor = "#0ff";
+            walls.forEach(w => {
+                ctx.beginPath();
+                ctx.arc(cx, cy, w.r, w.gapEnd, w.gapStart);
+                ctx.stroke();
+            });
+
+            // Draw Goal
+            ctx.strokeStyle = "#f0f"; ctx.shadowColor = "#f0f";
+            ctx.beginPath(); ctx.arc(cx, cy, goal.radius, 0, Math.PI * 2); ctx.stroke();
+
+            // Draw Ball
+            ctx.fillStyle = "#fff"; ctx.shadowColor = "#fff";
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill();
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
         function handleTilt(e) {
             if (!active) return;
-            ball.vx += e.gamma * 0.15; // Sensitivity
-            ball.vy += e.beta * 0.15;
+            ball.vx += e.gamma * 0.12;
+            ball.vy += e.beta * 0.12;
         }
 
         startBtn.addEventListener('click', () => {
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission().then(s => {
                     if (s === 'granted') window.addEventListener('deviceorientation', handleTilt);
                 });
             } else { window.addEventListener('deviceorientation', handleTilt); }
             document.getElementById('ui').style.display = "none";
-            generateCircularMaze(); active = true;
+            active = true;
         });
 
-        draw();
+        window.addEventListener('resize', init);
+        init(); draw();
     </script>
 </body>
 </html>
-
-    
