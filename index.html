@@ -2,165 +2,134 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Terrain Labyrinth Pro</title>
+    <title>Realistic Volcano Satellite View</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; }
+        body { margin: 0; overflow: hidden; background: #0b0907; font-family: 'Arial Black', sans-serif; }
         canvas { display: block; }
         #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; text-align: center; z-index: 10; }
-        button { pointer-events: auto; padding: 15px 35px; font-size: 20px; cursor: pointer; background: #222; color: #fff; border: 2px solid #fff; border-radius: 5px; text-transform: uppercase; letter-spacing: 2px; }
-        #winContainer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; pointer-events: none; z-index: 100; }
-        #worm { font-size: 80px; filter: drop-shadow(0 0 10px gold); }
-        #winText { color: gold; font-size: 40px; text-shadow: 2px 2px #000; opacity: 0; transform: scale(0.5); transition: 0.5s; font-weight: bold; }
-        .show-win #winText { opacity: 1; transform: scale(1); }
+        button { pointer-events: auto; padding: 18px 40px; font-size: 22px; cursor: pointer; background: #3d1c02; color: #ff9d00; border: none; border-radius: 5px; box-shadow: 0 4px #210e01, 0 0 30px rgba(255, 69, 0, 0.4); text-transform: uppercase; font-weight: bold; }
+        #win { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); color: #ff00ff; font-size: 50px; text-shadow: 0 0 20px #ff00ff; pointer-events: none; z-index: 100; transition: 0.5s; text-align: center; }
+        .show-win { transform: translate(-50%, -50%) scale(1) !important; }
     </style>
 </head>
 <body>
-    <div id="ui"><h1>GAIA'S CORE</h1><button id="startBtn">BEGIN JOURNEY</button></div>
-    <div id="winContainer"><div id="worm">🪱</div><div id="winText">AAHHHMAZING!</div></div>
+    <div id="ui"><h1>AERIAL DESCENT</h1><button id="startBtn">DROP TO SURFACE</button></div>
+    <div id="win">🪱<br>AAHHHMAZING!</div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const startBtn = document.getElementById('startBtn');
-        const winContainer = document.getElementById('winContainer');
+        const winDisplay = document.getElementById('win');
         
-        let ball = { x: 0, y: 0, radius: 6, vx: 0, vy: 0 };
-        let walls = [];
+        let ball = { x: 0, y: 0, radius: 4, vx: 0, vy: 0 };
+        let terrainData = []; // Stores the "solid" parts of the mountain
         let active = false;
-        let cx, cy, level = 1;
-
-        // Realistic Terrain Profiles
-        const worldThemes = [
-            { name: "Teleidoscope", wall: "#00f2ff", bg: "#000814", goal: "crystal" },
-            { name: "Volcano", wall: "#3d1f00", bg: "#1a0d00", goal: "lava" },
-            { name: "Tundra", wall: "#a8dadc", bg: "#f1faee", goal: "ice" },
-            { name: "Ruins", wall: "#344e41", bg: "#dad7cd", goal: "stone" },
-            { name: "Deep Core", wall: "#222", bg: "#000", goal: "fire" }
-        ];
+        let cx, cy;
 
         function init() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             cx = canvas.width / 2; cy = canvas.height / 2;
-            generateLevel();
+            renderTerrain();
+            ball.x = 40; ball.y = 40;
         }
 
-        function generateLevel() {
-            walls = [];
-            const theme = worldThemes[(level-1) % 5];
-            const rings = 5 + level;
-            const dist = (Math.min(canvas.width, canvas.height)/2 - 40) / rings;
+        function renderTerrain() {
+            // Create a realistic satellite-style background
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width; tempCanvas.height = canvas.height;
+            const tctx = tempCanvas.getContext('2d');
 
-            for (let i = 1; i <= rings; i++) {
-                let gap = (level % 2 === 0) ? (i % 2 === 0 ? 0 : Math.PI) : Math.random() * 6.28;
-                walls.push({ r: i * dist, gapS: gap, gapE: gap + 0.8 });
-            }
-            ball.x = cx + (rings * dist); ball.y = cy;
-            ball.vx = 0; ball.vy = 0;
-        }
+            // 1. Base Ashy Rock
+            tctx.fillStyle = "#1a1612";
+            tctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        function drawBackground() {
-            const theme = worldThemes[(level-1) % 5];
-            // Simulate realistic terrain with gradients
-            let grd = ctx.createRadialGradient(cx, cy, 10, cx, cy, canvas.width);
-            grd.addColorStop(0, "#000");
-            grd.addColorStop(1, theme.bg);
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Add texture grain
-            ctx.globalAlpha = 0.05;
-            for(let i=0; i<100; i++) {
-                ctx.fillStyle = "white";
-                ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
-            }
-            ctx.globalAlpha = 1.0;
-        }
-
-        function drawGoal() {
-            const theme = worldThemes[(level-1) % 5];
-            ctx.save();
-            if (theme.goal === "crystal") {
-                // Teleidoscope Core
-                ctx.translate(cx, cy);
-                ctx.rotate(Date.now() / 1000);
-                for(let i=0; i<6; i++) {
-                    ctx.rotate(Math.PI/3);
-                    ctx.fillStyle = "rgba(0, 242, 255, 0.5)";
-                    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(20,40); ctx.lineTo(-20,40); ctx.fill();
+            // 2. Generate Organic Mountain Ridges (The "Invisible" Walls)
+            tctx.lineWidth = 15;
+            for(let r = 80; r < Math.max(cx, cy); r += 45) {
+                tctx.beginPath();
+                tctx.strokeStyle = `rgba(40, 30, 20, ${0.3 + Math.random()})`;
+                const gap = Math.random() * 6.28;
+                // Jagged pathing
+                for(let a = 0; a < 6.28; a += 0.1) {
+                    const noise = Math.sin(a * 15) * 8;
+                    const x = cx + Math.cos(a) * (r + noise);
+                    const y = cy + Math.sin(a) * (r + noise);
+                    
+                    if (a > gap && a < gap + 0.9) tctx.moveTo(x, y);
+                    else {
+                        tctx.lineTo(x, y);
+                        // Store wall position for physics
+                        terrainData.push({x, y, r: r + noise, gS: gap, gE: gap+0.9});
+                    }
                 }
-            } else if (theme.goal === "lava") {
-                // Pulsing Lava Crater
-                let pulse = 25 + Math.sin(Date.now()/200)*5;
-                let lgrd = ctx.createRadialGradient(cx, cy, 5, cx, cy, pulse);
-                lgrd.addColorStop(0, "yellow"); lgrd.addColorStop(0.5, "orange"); lgrd.addColorStop(1, "red");
-                ctx.fillStyle = lgrd;
-                ctx.beginPath(); ctx.arc(cx, cy, pulse, 0, 6.28); ctx.fill();
+                tctx.stroke();
             }
-            ctx.restore();
+            
+            // 3. Add Crag Texture (Grain/Noise)
+            for(let i=0; i<5000; i++) {
+                tctx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
+                tctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 1, 1);
+            }
+
+            // 4. The Lava Crater
+            let grad = tctx.createRadialGradient(cx, cy, 5, cx, cy, 35);
+            grad.addColorStop(0, "#fff5a0"); grad.addColorStop(0.2, "#ff9d00");
+            grad.addColorStop(0.6, "#ff4500"); grad.addColorStop(1, "transparent");
+            tctx.fillStyle = grad;
+            tctx.beginPath(); tctx.arc(cx, cy, 35, 0, 6.28); tctx.fill();
+
+            // Set the generated terrain as background
+            canvas.style.backgroundImage = `url(${tempCanvas.toDataURL()})`;
         }
 
         function update() {
             if (!active) return;
-            // Tundra level has less friction (more slippery)
-            const friction = (level % 5 === 3) ? 0.995 : 0.98;
             ball.x += ball.vx; ball.y += ball.vy;
-            ball.vx *= friction; ball.vy *= friction;
+            ball.vx *= 0.98; ball.vy *= 0.98;
 
             const dist = Math.hypot(ball.x - cx, ball.y - cy);
             const angle = (Math.atan2(ball.y - cy, ball.x - cx) + 6.28) % 6.28;
 
-            walls.forEach(w => {
-                if (Math.abs(dist - w.r) < ball.radius + 4) {
-                    let inGap = (angle > w.gapS && angle < w.gapE);
-                    if (w.gapE > 6.28) inGap = (angle > w.gapS || angle < w.gapE % 6.28);
-                    
+            // Physics using Terrain Map
+            terrainData.forEach(p => {
+                const d = Math.hypot(ball.x - cx, ball.y - cy);
+                if (Math.abs(d - p.r) < 6) {
+                    const inGap = (angle > p.gS && angle < p.gE);
                     if (!inGap) {
-                        const push = (dist > w.r) ? 1.5 : -1.5;
-                        ball.x = cx + Math.cos(angle) * (w.r + (push * (ball.radius + 2)));
-                        ball.y = cy + Math.sin(angle) * (w.r + (push * (ball.radius + 2)));
-                        ball.vx *= -0.5; ball.vy *= -0.5;
-                        if(navigator.vibrate) navigator.vibrate(5);
+                        const push = (d > p.r) ? 1.5 : -1.5;
+                        ball.x = cx + Math.cos(angle) * (p.r + (push * 7));
+                        ball.y = cy + Math.sin(angle) * (p.r + (push * 7));
+                        ball.vx *= -0.4; ball.vy *= -0.4;
+                        if(navigator.vibrate) navigator.vibrate(3);
                     }
                 }
             });
 
+            // Goal detection
             if (dist < 25) {
                 active = false;
-                winContainer.style.display = "flex";
-                winContainer.classList.add('show-win');
+                winDisplay.classList.add('show-win');
                 setTimeout(() => {
-                    winContainer.classList.remove('show-win');
-                    winContainer.style.display = "none";
-                    level++; if(level > 5) level = 1; 
-                    generateLevel(); active = true;
-                }, 2000);
+                    winDisplay.classList.remove('show-win');
+                    init(); active = true;
+                }, 3000);
             }
         }
 
         function draw() {
-            drawBackground();
-            drawGoal();
-            const theme = worldThemes[(level-1) % 5];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            walls.forEach(w => {
-                ctx.beginPath();
-                ctx.lineWidth = 10;
-                ctx.lineCap = "round";
-                ctx.strokeStyle = theme.wall;
-                ctx.shadowBlur = 5; ctx.shadowColor = "black";
-                ctx.arc(cx, cy, w.r, w.gapE, w.gapS);
-                ctx.stroke();
-            });
-
-            // The Ball (A realistic silver marble)
-            let bgrd = ctx.createRadialGradient(ball.x-2, ball.y-2, 1, ball.x, ball.y, ball.radius);
-            bgrd.addColorStop(0, "white"); bgrd.addColorStop(1, "#888");
-            ctx.fillStyle = bgrd;
+            // Realistic Ball (Metallic Sphere with highlights)
+            let bGrad = ctx.createRadialGradient(ball.x-2, ball.y-2, 1, ball.x, ball.y, ball.radius);
+            bGrad.addColorStop(0, "#fff"); bGrad.addColorStop(1, "#666");
+            ctx.fillStyle = bGrad;
             ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, 6.28); ctx.fill();
 
-            update(); requestAnimationFrame(draw);
+            update();
+            requestAnimationFrame(draw);
         }
 
         startBtn.addEventListener('click', () => {
@@ -178,7 +147,6 @@
             document.getElementById('ui').style.display = "none"; active = true;
         });
 
-        window.addEventListener('resize', init);
         init(); draw();
     </script>
 </body>
