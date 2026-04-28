@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phone Labyrinth</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; pointer-events: none; }
+        button { pointer-events: auto; padding: 15px 30px; font-size: 18px; cursor: pointer; background: #10a37f; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1 id="msg">Labyrinth</h1>
+        <button id="startBtn">Start Game</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const msg = document.getElementById('msg');
+
+        let ball = { x: 40, y: 40, radius: 12, vx: 0, vy: 0 };
+        let walls = [];
+        let goal = { x: 0, y: 0, size: 40 };
+        let active = false;
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Static Maze Layout [x, y, width, height]
+            walls = [
+                [0, 0, canvas.width, 10], [0, 0, 10, canvas.height],
+                [0, canvas.height - 10, canvas.width, 10], [canvas.width - 10, 0, 10, canvas.height],
+                [canvas.width * 0.3, 0, 15, canvas.height * 0.6], 
+                [canvas.width * 0.6, canvas.height * 0.4, 15, canvas.height * 0.6],
+                [0, canvas.height * 0.4, canvas.width * 0.3, 15]
+            ];
+            goal = { x: canvas.width - 50, y: canvas.height - 50, size: 40 };
+            ball.x = 40; ball.y = 40; ball.vx = 0; ball.vy = 0;
+        }
+
+        function update() {
+            if (!active) return;
+            ball.vx *= 0.97; ball.vy *= 0.97; // friction
+            ball.x += ball.vx; ball.y += ball.vy;
+
+            // Simple Wall Collision Logic
+            walls.forEach(w => {
+                if (ball.x + ball.radius > w[0] && ball.x - ball.radius < w[0] + w[2] &&
+                    ball.y + ball.radius > w[1] && ball.y - ball.radius < w[1] + w[3]) {
+                    ball.x -= ball.vx; ball.y -= ball.vy;
+                    ball.vx *= -0.4; ball.vy *= -0.4; // bounce back
+                }
+            });
+
+            // Goal detection
+            if (Math.hypot(ball.x - goal.x, ball.y - goal.y) < goal.size/2) {
+                msg.innerText = "Level Complete!";
+                startBtn.style.display = "block";
+                active = false;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#444";
+            walls.forEach(w => ctx.fillRect(...w));
+            ctx.fillStyle = "#10a37f"; // Goal
+            ctx.beginPath(); ctx.arc(goal.x, goal.y, goal.size/2, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#ffffff"; // Ball
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2); ctx.fill();
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        function handleTilt(e) {
+            // Adjust sensitivity based on beta (tilt forward/back) and gamma (left/right)
+            ball.vx += e.gamma * 0.08;
+            ball.vy += e.beta * 0.08;
+        }
+
+        startBtn.addEventListener('click', () => {
+            // iOS requires explicit permission request
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(state => {
+                    if (state === 'granted') window.addEventListener('deviceorientation', handleTilt);
+                });
+            } else {
+                window.addEventListener('deviceorientation', handleTilt);
+            }
+            active = true; startBtn.style.display = "none"; msg.innerText = "";
+            init();
+        });
+
+        window.addEventListener('resize', init);
+        init(); draw();
+    </script>
+</body>
+</html>
