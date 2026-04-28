@@ -2,34 +2,24 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wormhole Labyrinth</title>
+    <title>Gyro-Wormhole Labyrinth</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; transition: background 1s; }
         canvas { display: block; }
         #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #0ff; text-align: center; z-index: 10; }
-        button { pointer-events: auto; padding: 15px 35px; font-size: 22px; cursor: pointer; background: #111; color: #0ff; border: 3px solid #0ff; border-radius: 50px; text-transform: uppercase; box-shadow: 0 0 20px #0ff; }
-        
-        #winContainer {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: none; flex-direction: column; align-items: center; pointer-events: none; z-index: 100;
-        }
+        button { pointer-events: auto; padding: 15px 35px; font-size: 22px; cursor: pointer; background: #111; color: inherit; border: 3px solid currentColor; border-radius: 50px; text-transform: uppercase; box-shadow: 0 0 20px currentColor; }
+        #winContainer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; pointer-events: none; z-index: 100; }
         #worm { font-size: 80px; transform: translateY(50px); opacity: 0; transition: all 0.5s cubic-bezier(0.17, 0.89, 0.32, 1.49); }
         #winText { color: #f0f; font-size: 40px; text-shadow: 0 0 20px #f0f; opacity: 0; transform: scale(0.5); transition: all 0.5s 0.3s; }
-        #levelText { position: absolute; top: 20px; left: 20px; color: #0ff; font-size: 18px; text-shadow: 0 0 10px #0ff; }
-        
+        #levelText { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 16px; letter-spacing: 2px; }
         .show-win #worm { opacity: 1; transform: translateY(-20px); }
         .show-win #winText { opacity: 1; transform: scale(1); }
     </style>
 </head>
 <body>
-    <div id="levelText">DIMENSION: 1</div>
+    <div id="levelText">SECTOR: 1</div>
     <div id="ui"><h1>NEON WHEEL</h1><button id="startBtn">START</button></div>
-    
-    <div id="winContainer">
-        <div id="worm">🪱</div>
-        <div id="winText">AAHHHMAZING!</div>
-    </div>
-
+    <div id="winContainer"><div id="worm">🪱</div><div id="winText">AAHHHMAZING!</div></div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -39,61 +29,56 @@
         const winContainer = document.getElementById('winContainer');
         const levelDisplay = document.getElementById('levelText');
         
-        let ball = { x: 0, y: 0, radius: 5, vx: 0, vy: 0 };
+        let ball = { x: 0, y: 0, radius: 6, vx: 0, vy: 0 };
         let walls = [];
-        let goal = { radius: 25 };
+        let goal = { radius: 28 };
         let active = false;
-        let cx, cy;
-        let currentLevel = 1;
-        let wormholeAngle = 0;
+        let cx, cy, currentLevel = 1;
+        let gyroRot = [0, 0, 0];
+
+        // Theme Palette: [WallColor, GlowColor, BallColor]
+        const themes = [
+            ['#00ffff', '#00ffff', '#ffffff'], // Cyber
+            ['#ff00ff', '#ff00ff', '#ffff00'], // Neon Candy
+            ['#33ff33', '#33ff33', '#ff0000'], // Toxic
+            ['#ffaa00', '#ffaa00', '#0000ff'], // Flare
+            ['#ffffff', '#ffffff', '#555555']  // Ghost
+        ];
 
         function init() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            cx = canvas.width / 2;
-            cy = canvas.height / 2;
+            cx = canvas.width / 2; cy = canvas.height / 2;
             generateMaze();
         }
 
         function generateMaze() {
             walls = [];
-            // Difficulty scaling: Starts with 6 rings, adds 1 per level
-            const rings = 5 + currentLevel; 
-            const maxRadius = Math.min(canvas.width, canvas.height) / 2 - 40;
-            const ringDist = maxRadius / rings;
-
+            const rings = 5 + (currentLevel % 8); 
+            const ringDist = (Math.min(canvas.width, canvas.height) / 2 - 60) / rings;
             for (let i = 1; i <= rings; i++) {
-                const r = i * ringDist;
                 const gapAngle = Math.random() * Math.PI * 2;
-                // Gaps get smaller as levels progress
-                const gapSize = Math.max(0.3, 0.6 - (currentLevel * 0.02)); 
-                walls.push({ r, gapStart: gapAngle, gapEnd: gapAngle + gapSize });
+                walls.push({ r: i * ringDist, gapStart: gapAngle, gapEnd: gapAngle + 0.5 });
             }
-            
-            // Spawn ball on the edge of the furthest ring
-            ball.x = cx + (rings * ringDist);
-            ball.y = cy;
+            ball.x = cx + (rings * ringDist); ball.y = cy;
             ball.vx = 0; ball.vy = 0;
-            levelDisplay.innerText = `DIMENSION: ${currentLevel}`;
+            levelDisplay.innerText = `SECTOR: ${currentLevel}`;
+            levelDisplay.style.color = themes[currentLevel % themes.length][0];
         }
 
         function resolveCollisions() {
-            const dx = ball.x - cx;
-            const dy = ball.y - cy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const dx = ball.x - cx, dy = ball.y - cy;
+            const dist = Math.sqrt(dx*dx + dy*dy);
             const angle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
 
             walls.forEach(w => {
-                const wallThickness = 3;
-                if (dist + ball.radius > w.r - wallThickness && dist - ball.radius < w.r + wallThickness) {
-                    let inGap = false;
-                    const normalizedGapEnd = w.gapEnd % (Math.PI * 2);
-                    if (w.gapStart < normalizedGapEnd) inGap = angle > w.gapStart && angle < normalizedGapEnd;
-                    else inGap = angle > w.gapStart || angle < normalizedGapEnd;
-
+                if (Math.abs(dist - w.r) < ball.radius + 2) {
+                    let inGap = (w.gapStart < (w.gapEnd % 6.28)) ? 
+                        (angle > w.gapStart && angle < w.gapEnd) : 
+                        (angle > w.gapStart || angle < (w.gapEnd % 6.28));
                     if (!inGap) {
-                        const pushDir = (dist > w.r) ? 1 : -1;
-                        const correctDist = w.r + (pushDir * (ball.radius + wallThickness + 0.5));
+                        const push = (dist > w.r) ? 1 : -1;
+                        const correctDist = w.r + (push * (ball.radius + 4));
                         ball.x = cx + Math.cos(angle) * correctDist;
                         ball.y = cy + Math.sin(angle) * correctDist;
                         ball.vx *= -0.5; ball.vy *= -0.5;
@@ -103,76 +88,63 @@
             });
         }
 
+        function drawGyroscope() {
+            const theme = themes[currentLevel % themes.length];
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.shadowBlur = 15; ctx.shadowColor = theme[1];
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.rotate(gyroRot[i]);
+                ctx.ellipse(0, 0, goal.radius - (i*6), goal.radius/(1+(i*0.5)), i, 0, Math.PI * 2);
+                ctx.strokeStyle = i === 0 ? theme[0] : (i === 1 ? theme[1] : '#fff');
+                ctx.lineWidth = 2; ctx.stroke();
+                gyroRot[i] += 0.02 * (i + 1);
+            }
+            ctx.restore();
+        }
+
         function update() {
             if (!active) return;
             ball.x += ball.vx; ball.y += ball.vy;
-            ball.vx *= 0.985; ball.vy *= 0.985;
-            wormholeAngle += 0.1; // Wormhole spin speed
-
+            ball.vx *= 0.98; ball.vy *= 0.98;
             resolveCollisions();
-
-            const distToGoal = Math.hypot(ball.x - cx, ball.y - cy);
-            if (distToGoal < goal.radius) {
-                active = false;
-                currentLevel++;
+            if (Math.hypot(ball.x - cx, ball.y - cy) < goal.radius - 5) {
+                active = false; currentLevel++;
                 winContainer.style.display = "flex";
                 setTimeout(() => winContainer.classList.add('show-win'), 10);
                 setTimeout(() => {
                     winContainer.classList.remove('show-win');
                     setTimeout(() => winContainer.style.display = "none", 500);
-                    generateMaze();
-                    active = true;
-                }, 3000);
+                    generateMaze(); active = true;
+                }, 2500);
             }
-        }
-
-        function drawWormhole() {
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(wormholeAngle);
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                ctx.strokeStyle = i === 0 ? "#f0f" : i === 1 ? "#0ff" : "#fff";
-                ctx.lineWidth = 2;
-                ctx.ellipse(0, 0, goal.radius, goal.radius / (1.5 + i), (i * Math.PI) / 3, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-            ctx.restore();
         }
 
         function draw() {
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawWormhole();
-
-            ctx.strokeStyle = "#0ff"; ctx.shadowBlur = 15; ctx.shadowColor = "#0ff";
-            ctx.lineWidth = 3;
+            const theme = themes[currentLevel % themes.length];
+            ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawGyroscope();
+            ctx.strokeStyle = theme[0]; ctx.shadowBlur = 10; ctx.shadowColor = theme[1];
             walls.forEach(w => {
                 ctx.beginPath(); ctx.arc(cx, cy, w.r, w.gapEnd, w.gapStart); ctx.stroke();
             });
-
-            ctx.fillStyle = "#fff"; ctx.shadowBlur = 10; ctx.shadowColor = "#fff";
-            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill();
-
-            update();
-            requestAnimationFrame(draw);
-        }
-
-        function handleTilt(e) {
-            if (!active) return;
-            ball.vx += e.gamma * 0.16;
-            ball.vy += e.beta * 0.16;
+            ctx.fillStyle = theme[2]; ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill();
+            update(); requestAnimationFrame(draw);
         }
 
         startBtn.addEventListener('click', () => {
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission().then(s => {
-                    if (s === 'granted') window.addEventListener('deviceorientation', handleTilt);
+                    if (s === 'granted') window.addEventListener('deviceorientation', e => {
+                        ball.vx += e.gamma * 0.15; ball.vy += e.beta * 0.15;
+                    });
                 });
-            } else { window.addEventListener('deviceorientation', handleTilt); }
-            document.getElementById('ui').style.display = "none";
-            active = true;
+            } else { window.addEventListener('deviceorientation', e => {
+                ball.vx += e.gamma * 0.15; ball.vy += e.beta * 0.15;
+            });}
+            document.getElementById('ui').style.display = "none"; active = true;
         });
 
         window.addEventListener('resize', init);
