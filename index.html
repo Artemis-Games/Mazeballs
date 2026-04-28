@@ -2,18 +2,18 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Realistic Volcano Satellite View</title>
+    <title>Worms Style Labyrinth</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #0b0907; font-family: 'Arial Black', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #1a0f0a; font-family: 'Arial Black', sans-serif; }
         canvas { display: block; }
-        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; text-align: center; z-index: 10; }
-        button { pointer-events: auto; padding: 18px 40px; font-size: 22px; cursor: pointer; background: #3d1c02; color: #ff9d00; border: none; border-radius: 5px; box-shadow: 0 4px #210e01, 0 0 30px rgba(255, 69, 0, 0.4); text-transform: uppercase; font-weight: bold; }
+        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ff9d00; text-align: center; z-index: 10; }
+        button { pointer-events: auto; padding: 15px 35px; font-size: 20px; cursor: pointer; background: #3d1c02; color: #fff; border: 4px solid #ff4500; border-radius: 10px; text-transform: uppercase; box-shadow: 0 0 15px #ff4500; }
         #win { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); color: #ff00ff; font-size: 50px; text-shadow: 0 0 20px #ff00ff; pointer-events: none; z-index: 100; transition: 0.5s; text-align: center; }
         .show-win { transform: translate(-50%, -50%) scale(1) !important; }
     </style>
 </head>
 <body>
-    <div id="ui"><h1>AERIAL DESCENT</h1><button id="startBtn">DROP TO SURFACE</button></div>
+    <div id="ui"><h1>AERIAL VOLCANO</h1><button id="startBtn">START CLIMB</button></div>
     <div id="win">🪱<br>AAHHHMAZING!</div>
     <canvas id="gameCanvas"></canvas>
 
@@ -23,8 +23,8 @@
         const startBtn = document.getElementById('startBtn');
         const winDisplay = document.getElementById('win');
         
-        let ball = { x: 0, y: 0, radius: 4, vx: 0, vy: 0 };
-        let terrainData = []; // Stores the "solid" parts of the mountain
+        let ball = { x: 0, y: 0, radius: 5, vx: 0, vy: 0 };
+        let walls = [];
         let active = false;
         let cx, cy;
 
@@ -32,57 +32,27 @@
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             cx = canvas.width / 2; cy = canvas.height / 2;
-            renderTerrain();
-            ball.x = 40; ball.y = 40;
+            generateWormsTerrain();
         }
 
-        function renderTerrain() {
-            // Create a realistic satellite-style background
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = canvas.width; tempCanvas.height = canvas.height;
-            const tctx = tempCanvas.getContext('2d');
+        function generateWormsTerrain() {
+            walls = [];
+            const layers = 7;
+            const dist = (Math.min(canvas.width, canvas.height)/2 - 40) / layers;
 
-            // 1. Base Ashy Rock
-            tctx.fillStyle = "#1a1612";
-            tctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 2. Generate Organic Mountain Ridges (The "Invisible" Walls)
-            tctx.lineWidth = 15;
-            for(let r = 80; r < Math.max(cx, cy); r += 45) {
-                tctx.beginPath();
-                tctx.strokeStyle = `rgba(40, 30, 20, ${0.3 + Math.random()})`;
+            for (let i = 1; i <= layers; i++) {
+                const r = i * dist;
                 const gap = Math.random() * 6.28;
-                // Jagged pathing
-                for(let a = 0; a < 6.28; a += 0.1) {
-                    const noise = Math.sin(a * 15) * 8;
-                    const x = cx + Math.cos(a) * (r + noise);
-                    const y = cy + Math.sin(a) * (r + noise);
-                    
-                    if (a > gap && a < gap + 0.9) tctx.moveTo(x, y);
-                    else {
-                        tctx.lineTo(x, y);
-                        // Store wall position for physics
-                        terrainData.push({x, y, r: r + noise, gS: gap, gE: gap+0.9});
-                    }
+                // Jagged points to create a "hand-drawn" rocky look
+                let points = [];
+                for(let a=0; a<6.28; a+=0.1) {
+                    const noise = Math.sin(a * 12 + i) * 6;
+                    points.push({x: Math.cos(a)*(r+noise), y: Math.sin(a)*(r+noise), angle: a});
                 }
-                tctx.stroke();
+                walls.push({ points, r, gapS: gap, gapE: gap + 0.8 });
             }
-            
-            // 3. Add Crag Texture (Grain/Noise)
-            for(let i=0; i<5000; i++) {
-                tctx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
-                tctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 1, 1);
-            }
-
-            // 4. The Lava Crater
-            let grad = tctx.createRadialGradient(cx, cy, 5, cx, cy, 35);
-            grad.addColorStop(0, "#fff5a0"); grad.addColorStop(0.2, "#ff9d00");
-            grad.addColorStop(0.6, "#ff4500"); grad.addColorStop(1, "transparent");
-            tctx.fillStyle = grad;
-            tctx.beginPath(); tctx.arc(cx, cy, 35, 0, 6.28); tctx.fill();
-
-            // Set the generated terrain as background
-            canvas.style.backgroundImage = `url(${tempCanvas.toDataURL()})`;
+            ball.x = cx + (layers * dist); ball.y = cy;
+            ball.vx = 0; ball.vy = 0;
         }
 
         function update() {
@@ -93,39 +63,62 @@
             const dist = Math.hypot(ball.x - cx, ball.y - cy);
             const angle = (Math.atan2(ball.y - cy, ball.x - cx) + 6.28) % 6.28;
 
-            // Physics using Terrain Map
-            terrainData.forEach(p => {
-                const d = Math.hypot(ball.x - cx, ball.y - cy);
-                if (Math.abs(d - p.r) < 6) {
-                    const inGap = (angle > p.gS && angle < p.gE);
+            walls.forEach(w => {
+                if (Math.abs(dist - w.r) < ball.radius + 6) {
+                    let inGap = (angle > w.gapS && angle < w.gapE);
+                    if (w.gapE > 6.28) inGap = (angle > w.gapS || angle < w.gapE % 6.28);
+                    
                     if (!inGap) {
-                        const push = (d > p.r) ? 1.5 : -1.5;
-                        ball.x = cx + Math.cos(angle) * (p.r + (push * 7));
-                        ball.y = cy + Math.sin(angle) * (p.r + (push * 7));
-                        ball.vx *= -0.4; ball.vy *= -0.4;
-                        if(navigator.vibrate) navigator.vibrate(3);
+                        const push = (dist > w.r) ? 1.8 : -1.8;
+                        ball.x = cx + Math.cos(angle) * (w.r + (push * 7));
+                        ball.y = cy + Math.sin(angle) * (w.r + (push * 7));
+                        ball.vx *= -0.5; ball.vy *= -0.5;
+                        if(navigator.vibrate) navigator.vibrate(5);
                     }
                 }
             });
 
-            // Goal detection
             if (dist < 25) {
                 active = false;
                 winDisplay.classList.add('show-win');
                 setTimeout(() => {
                     winDisplay.classList.remove('show-win');
-                    init(); active = true;
+                    generateWormsTerrain(); active = true;
                 }, 3000);
             }
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Painted Background
+            let grd = ctx.createRadialGradient(cx, cy, 10, cx, cy, canvas.width/2);
+            grd.addColorStop(0, "#4a1c0d"); grd.addColorStop(1, "#1a0f0a");
+            ctx.fillStyle = grd; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Realistic Ball (Metallic Sphere with highlights)
-            let bGrad = ctx.createRadialGradient(ball.x-2, ball.y-2, 1, ball.x, ball.y, ball.radius);
-            bGrad.addColorStop(0, "#fff"); bGrad.addColorStop(1, "#666");
-            ctx.fillStyle = bGrad;
+            // Lava Core (Hand-drawn look)
+            ctx.shadowBlur = 25; ctx.shadowColor = "#ff4500";
+            ctx.fillStyle = "#ff6a00";
+            ctx.beginPath(); ctx.arc(cx, cy, 22, 0, 6.28); ctx.fill();
+
+            // Craggy "Painterly" Walls
+            ctx.lineWidth = 14;
+            ctx.shadowBlur = 5; ctx.shadowColor = "black";
+            walls.forEach(w => {
+                ctx.strokeStyle = "#5c3c24"; // Rich Brown Rock
+                ctx.beginPath();
+                w.points.forEach((p, idx) => {
+                    if (!(p.angle > w.gapS && p.angle < w.gapE)) {
+                        if (idx === 0) ctx.moveTo(cx + p.x, cy + p.y);
+                        else ctx.lineTo(cx + p.x, cy + p.y);
+                    } else { ctx.beginPath(); }
+                });
+                ctx.stroke();
+                // Add a "highlight" line for texture
+                ctx.strokeStyle = "#7a553a"; ctx.lineWidth = 4;
+                ctx.stroke();
+            });
+
+            // Ball
+            ctx.fillStyle = "#eee"; ctx.shadowBlur = 10; ctx.shadowColor = "white";
             ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, 6.28); ctx.fill();
 
             update();
